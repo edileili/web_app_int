@@ -11,25 +11,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Clonar el repositorio
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      # 2. Configurar Node.js
       - name: Configurar Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
 
-      # 3. Instalar dependencias
-      - name: Instalar y reconstruir dependencias
-        run: |
-          npm install
-          npm rebuild better-sqlite3
+      - name: Instalar dependencias
+        run: npm install
 
-      # 4. Ejecutar pruebas y mostrar cobertura
-      - name: Ejecutar batería de pruebas y cobertura
+      # Ejecutar pruebas limpias sin cobertura pesada que cause el segfault
+      - name: Ejecutar batería de pruebas
         run: npm test
 
       # 5. Iniciar sesión en Docker Hub de forma segura usando Secrets
