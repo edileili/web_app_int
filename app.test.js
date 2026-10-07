@@ -8,136 +8,162 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
-// Base de datos en memoria para pruebas limpias
-const db = new sqlite3.Database('./test.db');
-db.pragma('foreign_keys = ON;');
+// Base de datos de pruebas limpia (en memoria o archivo local)
+const db = new sqlite3.Database(':memory:');
 
-db.exec(`
-    CREATE TABLE IF NOT EXISTS categorias (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS productos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nombre TEXT NOT NULL,
-        precio REAL NOT NULL,
-        stock INTEGER NOT NULL DEFAULT 0,
-        categoria_id INTEGER,
-        FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE
-    );
-`);
+db.serialize(() => {
+    db.run("PRAGMA foreign_keys = ON;");
+    db.run(`
+        CREATE TABLE IF NOT EXISTS categorias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL
+        );
+    `);
+    db.run(`
+        CREATE TABLE IF NOT EXISTS productos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            precio REAL NOT NULL,
+            stock INTEGER NOT NULL DEFAULT 0,
+            categoria_id INTEGER,
+            FOREIGN KEY (categoria_id) REFERENCES categorias(id) ON DELETE CASCADE
+        );
+    `);
+});
 
 const apiResponse = (res, data, statusCode = 200) => {
     return res.status(statusCode).json({ statusCode, data });
 };
 
 // ==========================================
-// ENDPOINTS DE LA API (Con validaciones de error)
+// ENDPOINTS DE LA API (Adaptados a sqlite3)
 // ==========================================
 
 app.get('/api/productos', (req, res) => {
-    const productos = db.prepare('SELECT * FROM productos').all();
-    apiResponse(res, productos);
+    db.all('SELECT * FROM productos', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        apiResponse(res, rows);
+    });
 });
 
 app.get('/api/productos/:id', (req, res) => {
-    const producto = db.prepare('SELECT * FROM productos WHERE id = ?').get(req.params.id);
-    if (!producto) return res.status(404).json({ statusCode: 404, error: 'Producto no encontrado' });
-    apiResponse(res, producto);
+    db.get('SELECT * FROM productos WHERE id = ?', [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ statusCode: 404, error: 'Producto no encontrado' });
+        apiResponse(res, row);
+    });
 });
 
 app.get('/api/categorias', (req, res) => {
-    const categorias = db.prepare('SELECT * FROM categorias').all();
-    apiResponse(res, categorias);
+    db.all('SELECT * FROM categorias', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        apiResponse(res, rows);
+    });
 });
 
 app.get('/api/categorias/:id', (req, res) => {
-    const categoria = db.prepare('SELECT * FROM categorias WHERE id = ?').get(req.params.id);
-    if (!categoria) return res.status(404).json({ statusCode: 404, error: 'Categoría no encontrada' });
-    apiResponse(res, categoria);
+    db.get('SELECT * FROM categorias WHERE id = ?', [req.params.id], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ statusCode: 404, error: 'Categoría no encontrada' });
+        apiResponse(res, row);
+    });
 });
 
 app.get('/api/inventario', (req, res) => {
-    const inventario = db.prepare(`
+    const query = `
         SELECT p.id, p.nombre, p.precio, p.stock, c.nombre as categoria 
         FROM productos p 
         LEFT JOIN categorias c ON p.categoria_id = c.id
-    `).all();
-    apiResponse(res, inventario);
+    `;
+    db.all(query, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        apiResponse(res, rows);
+    });
 });
 
 app.post('/api/categorias', (req, res) => {
     if (!req.body || !req.body.nombre) {
         return res.status(400).json({ statusCode: 400, error: 'El nombre de la categoría es obligatorio' });
     }
-    const stmt = db.prepare('INSERT INTO categorias (nombre) VALUES (?)');
-    const info = stmt.run(req.body.nombre);
-    res.status(201).json({ statusCode: 201, data: { id: info.lastInsertRowid, ...req.body } });
+    db.run('INSERT INTO categorias (nombre) VALUES (?)', [req.body.nombre], function(err) {
+        if (err) return res.status(400).json({ statusCode: 400, error: err.message });
+        res.status(201).json({ statusCode: 201, data: { id: this.lastID, ...req.body } });
+    });
 });
 
 app.post('/api/productos', (req, res) => {
     if (!req.body.nombre || req.body.precio === undefined || !req.body.categoria_id) {
         return res.status(400).json({ statusCode: 400, error: 'Faltan campos obligatorios (nombre, precio, categoria_id)' });
     }
-    const catCheck = db.prepare('SELECT id FROM categorias WHERE id = ?').get(req.body.categoria_id);
-    if (!catCheck) {
-        return res.status(400).json({ statusCode: 400, error: 'La categoría especificada no existe' });
-    }
-    const stock = req.body.stock !== undefined ? req.body.stock : 0;
-    const stmt = db.prepare('INSERT INTO productos (nombre, precio, stock, categoria_id) VALUES (?, ?, ?, ?)');
-    const info = stmt.run(req.body.nombre, req.body.precio, stock, req.body.categoria_id);
-    res.status(201).json({ statusCode: 201, data: { id: info.lastInsertRowid, ...req.body, stock } });
+    db.get('SELECT id FROM categorias WHERE id = ?', [req.body.categoria_id], (err, cat) => {
+        if (!cat) {
+            return res.status(400).json({ statusCode: 400, error: 'La categoría especificada no existe' });
+        }
+        const stock = req.body.stock !== undefined ? req.body.stock : 0;
+        db.run('INSERT INTO productos (nombre, precio, stock, categoria_id) VALUES (?, ?, ?, ?)', 
+            [req.body.nombre, req.body.precio, stock, req.body.categoria_id], function(err) {
+                if (err) return res.status(400).json({ statusCode: 400, error: err.message });
+                res.status(201).json({ statusCode: 201, data: { id: this.lastID, ...req.body, stock } });
+        });
+    });
 });
 
 app.put('/api/productos/:id', (req, res) => {
-    const productoActual = db.prepare('SELECT * FROM productos WHERE id = ?').get(req.params.id);
-    if (!productoActual) {
-        return res.status(404).json({ statusCode: 404, error: 'Producto no encontrado' });
-    }
-    const { nombre, precio, stock, categoria_id } = req.body;
-    
-    if (categoria_id !== undefined) {
-        const catCheck = db.prepare('SELECT id FROM categorias WHERE id = ?').get(categoria_id);
-        if (!catCheck) return res.status(400).json({ statusCode: 400, error: 'La categoría no existe' });
-    }
+    db.get('SELECT * FROM productos WHERE id = ?', [req.params.id], (err, productoActual) => {
+        if (!productoActual) return res.status(404).json({ statusCode: 404, error: 'Producto no encontrado' });
+        
+        const { nombre, precio, stock, categoria_id } = req.body;
+        const nuevaCat = categoria_id !== undefined ? categoria_id : productoActual.categoria_id;
 
-    const nuevoNombre = nombre !== undefined ? nombre : productoActual.nombre;
-    const nuevoPrecio = precio !== undefined ? precio : productoActual.precio;
-    const nuevoStock = stock !== undefined ? stock : productoActual.stock;
-    const nuevaCat = categoria_id !== undefined ? categoria_id : productoActual.categoria_id;
+        db.get('SELECT id FROM categorias WHERE id = ?', [nuevaCat], (err, cat) => {
+            if (categoria_id !== undefined && !cat) {
+                return res.status(400).json({ statusCode: 400, error: 'La categoría no existe' });
+            }
 
-    db.prepare('UPDATE productos SET nombre = ?, precio = ?, stock = ?, categoria_id = ? WHERE id = ?')
-      .run(nuevoNombre, nuevoPrecio, nuevoStock, nuevaCat, req.params.id);
+            const nuevoNombre = nombre !== undefined ? nombre : productoActual.nombre;
+            const nuevoPrecio = precio !== undefined ? precio : productoActual.precio;
+            const nuevoStock = stock !== undefined ? stock : productoActual.stock;
 
-    apiResponse(res, { id: Number(req.params.id), nombre: nuevoNombre, precio: nuevoPrecio, stock: nuevoStock, categoria_id: nuevaCat });
+            db.run('UPDATE productos SET nombre = ?, precio = ?, stock = ?, categoria_id = ? WHERE id = ?',
+                [nuevoNombre, nuevoPrecio, nuevoStock, nuevaCat, req.params.id], (err) => {
+                    if (err) return res.status(500).json({ error: err.message });
+                    apiResponse(res, { id: Number(req.params.id), nombre: nuevoNombre, precio: nuevoPrecio, stock: nuevoStock, categoria_id: nuevaCat });
+            });
+        });
+    });
 });
 
 app.put('/api/categorias/:id', (req, res) => {
     if (!req.body.nombre) {
         return res.status(400).json({ statusCode: 400, error: 'El nombre es obligatorio' });
     }
-    const stmt = db.prepare('UPDATE categorias SET nombre = ? WHERE id = ?');
-    const info = stmt.run(req.body.nombre, req.params.id);
-    if (info.changes === 0) {
-        return res.status(404).json({ statusCode: 404, error: 'Categoría no encontrada' });
-    }
-    apiResponse(res, { id: Number(req.params.id), nombre: req.body.nombre });
+    db.run('UPDATE categorias SET nombre = ? WHERE id = ?', [req.body.nombre, req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) {
+            return res.status(404).json({ statusCode: 404, error: 'Categoría no encontrada' });
+        }
+        apiResponse(res, { id: Number(req.params.id), nombre: req.body.nombre });
+    });
 });
 
 app.delete('/api/productos/:id', (req, res) => {
-    const stmt = db.prepare('DELETE FROM productos WHERE id = ?');
-    const info = stmt.run(req.params.id);
-    if (info.changes === 0) {
-        return res.status(404).json({ statusCode: 404, error: 'Producto no encontrado' });
-    }
-    res.status(200).json({ statusCode: 200, message: 'Eliminado correctamente' });
+    db.run('DELETE FROM productos WHERE id = ?', [req.params.id], function(err) {
+        if (err) return res.status(500).json({ error: err.message });
+        if (this.changes === 0) {
+            return res.status(404).json({ statusCode: 404, error: 'Producto no encontrado' });
+        }
+        res.status(200).json({ statusCode: 200, message: 'Eliminado correctamente' });
+    });
 });
 
 app.delete('/api/mantenimiento/vaciar', (req, res) => {
-    db.prepare('DELETE FROM productos').run();
-    db.prepare('DELETE FROM categorias').run();
-    apiResponse(res, { mensaje: 'Base de datos vaciada correctamente' });
+    db.serialize(() => {
+        db.run('DELETE FROM productos');
+        db.run('DELETE FROM categorias', [], (err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            apiResponse(res, { mensaje: 'Base de datos vaciada correctamente' });
+        });
+    });
 });
 
 
@@ -145,8 +171,6 @@ app.delete('/api/mantenimiento/vaciar', (req, res) => {
 // BATERÍA DE 20 PRUEBAS (10 Exitosas + 10 de Errores)
 // ==========================================
 describe('Pruebas Integrales de la API (20 Casos)', () => {
-
-    // --- BLOQUE 1: PRUEBAS DE FLUJO EXITOSO (1 al 10) ---
 
     test('1. GET /api/categorias - Lista vacía inicial', async () => {
         const res = await request(app).get('/api/categorias');
@@ -210,9 +234,6 @@ describe('Pruebas Integrales de la API (20 Casos)', () => {
         const res = await request(app).delete('/api/productos/1');
         expect(res.statusCode).toEqual(200);
     });
-
-
-    // --- BLOQUE 2: PRUEBAS DE ESCENARIOS DE ERROR (11 al 20) ---
 
     test('11. (ERROR) POST /api/categorias - Cuerpo vacío sin nombre', async () => {
         const res = await request(app).post('/api/categorias').send({});
