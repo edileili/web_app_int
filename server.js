@@ -143,11 +143,10 @@ app.delete('/api/mantenimiento/vaciar', (req, res) => {
     apiResponse(res, { mensaje: 'Base de datos vaciada correctamente' });
 });
 
-// Endpoint de Ayuda / Documentación de la API (ApiHelp)
-app.get('/api/help', (req, res) => {
+app.get('/api/health', (req, res) => {
     res.status(200).json({
         statusCode: 200,
-        app: "API de Gestión de Productos y Categorías",
+        app: "API de Gestión de Productos - Edén Leilani Romero Serrano",
         version: "1.0.0",
         endpoints: {
             categorias: {

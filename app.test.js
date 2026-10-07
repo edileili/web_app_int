@@ -8,7 +8,6 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
-// Base de datos de pruebas limpia (en memoria o archivo local)
 const db = new sqlite3.Database(':memory:');
 
 db.serialize(() => {
