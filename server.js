@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json());
 
 //const db = new Database('database.db');
-const db = new Database(':memory:');
+const db = new Database(path.join(__dirname, 'database.db'));
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS categorias (
