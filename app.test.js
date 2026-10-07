@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 // Base de datos en memoria para pruebas limpias
-const db = new Database(':memory:');
+const db = new Database('./test.db');
 db.pragma('foreign_keys = ON;');
 
 db.exec(`
