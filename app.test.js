@@ -165,6 +165,36 @@ app.delete('/api/mantenimiento/vaciar', (req, res) => {
     });
 });
 
+app.get('/api/health', (req, res) => {
+    res.status(200).json({
+        statusCode: 200,
+        app: "API de Gestión de Productos - Edén Leilani Romero Serrano",
+        version: "1.0.0",
+        endpoints: {
+            categorias: {
+                "GET /api/categorias": "Lista todas las categorías",
+                "GET /api/categorias/:id": "Obtiene una categoría por ID",
+                "POST /api/categorias": "Crea una nueva categoría (Requiere { nombre })",
+                "PUT /api/categorias/:id": "Actualiza una categoría",
+                "DELETE /api/categorias/:id": "Elimina una categoría"
+            },
+            productos: {
+                "GET /api/productos": "Lista todos los productos",
+                "GET /api/productos/:id": "Obtiene un producto por ID",
+                "POST /api/productos": "Crea un producto (Requiere { nombre, precio, categoria_id, stock })",
+                "PUT /api/productos/:id": "Actualiza un producto",
+                "DELETE /api/productos/:id": "Elimina un producto"
+            },
+            inventario: {
+                "GET /api/inventario": "Consulta el inventario unificado (Productos con su respectiva categoría)"
+            },
+            mantenimiento: {
+                "DELETE /api/mantenimiento/vaciar": "Vacía toda la base de datos (Útil para pruebas)"
+            }
+        }
+    });
+});
+
 
 // ==========================================
 // BATERÍA DE 20 PRUEBAS (10 Exitosas + 10 de Errores)
@@ -294,6 +324,13 @@ describe('Pruebas Integrales de la API (20 Casos)', () => {
         const res = await request(app).delete('/api/mantenimiento/vaciar');
         expect(res.statusCode).toEqual(200);
         expect(res.body.data.mensaje).toContain('vaciada');
+    });
+    test('21. GET /api/health - Rutas disponibles', async () => {
+        const res = await request(app).get('/api/health');
+        
+        expect(res.statusCode).toEqual(200);
+        expect(res.body).toHaveProperty('endpoints');
+        expect(res.body).toHaveProperty('app');
     });
 });
 
