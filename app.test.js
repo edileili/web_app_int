@@ -1,6 +1,6 @@
 const request = require('supertest');
 const express = require('express');
-const Database = require('better-sqlite3');
+const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 
@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 
 // Base de datos en memoria para pruebas limpias
-const db = new Database('./test.db');
+const db = new sqlite3.Database('./test.db');
 db.pragma('foreign_keys = ON;');
 
 db.exec(`
