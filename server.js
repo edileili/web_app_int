@@ -143,6 +143,37 @@ app.delete('/api/mantenimiento/vaciar', (req, res) => {
     apiResponse(res, { mensaje: 'Base de datos vaciada correctamente' });
 });
 
+// Endpoint de Ayuda / Documentación de la API (ApiHelp)
+app.get('/api/help', (req, res) => {
+    res.status(200).json({
+        statusCode: 200,
+        app: "API de Gestión de Productos y Categorías",
+        version: "1.0.0",
+        endpoints: {
+            categorias: {
+                "GET /api/categorias": "Lista todas las categorías",
+                "GET /api/categorias/:id": "Obtiene una categoría por ID",
+                "POST /api/categorias": "Crea una nueva categoría (Requiere { nombre })",
+                "PUT /api/categorias/:id": "Actualiza una categoría",
+                "DELETE /api/categorias/:id": "Elimina una categoría"
+            },
+            productos: {
+                "GET /api/productos": "Lista todos los productos",
+                "GET /api/productos/:id": "Obtiene un producto por ID",
+                "POST /api/productos": "Crea un producto (Requiere { nombre, precio, categoria_id, stock })",
+                "PUT /api/productos/:id": "Actualiza un producto",
+                "DELETE /api/productos/:id": "Elimina un producto"
+            },
+            inventario: {
+                "GET /api/inventario": "Consulta el inventario unificado (Productos con su respectiva categoría)"
+            },
+            mantenimiento: {
+                "DELETE /api/mantenimiento/vaciar": "Vacía toda la base de datos (Útil para pruebas)"
+            }
+        }
+    });
+});
+
 const tcpServer = net.createServer((socket) => {
     console.log('Cliente TCP conectado.');
 
