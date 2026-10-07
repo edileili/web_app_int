@@ -23,8 +23,10 @@ jobs:
           cache: 'npm'
 
       # 3. Instalar dependencias
-      - name: Instalar dependencias
-        run: npm install
+      - name: Instalar y reconstruir dependencias
+        run: |
+          npm install
+          npm rebuild better-sqlite3
 
       # 4. Ejecutar pruebas y mostrar cobertura
       - name: Ejecutar batería de pruebas y cobertura
