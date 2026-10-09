@@ -60,13 +60,11 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 1. Asegurarse de que Docker esté corriendo y autenticarse si fuera privado (opcional)
-            # 2. Descargar la última versión de la imagen desde Docker Hub
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/webapp:latest
-            
-            # 3. Detener y eliminar el contenedor anterior si ya existe (para evitar conflictos de puertos)
             sudo docker stop mi-api-app || true
             sudo docker rm mi-api-app || true
+            sudo docker rmi ${{ secrets.DOCKER_USERNAME }}/webapp:latest || true
+
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/webapp:latest
             
             # 4. Levantar el nuevo contenedor mapeando el puerto 80 del servidor al puerto interno de la app (ej. 3000)
             sudo docker run -d --name mi-api-app -p 80:3000 ${{ secrets.DOCKER_USERNAME }}/webapp:latest
