@@ -145,9 +145,9 @@ app.delete('/api/mantenimiento/vaciar', (req, res) => {
 
 app.get('/api/health', (req, res) => {
     res.status(200).json({
-        statusCode: 200,
+        statusCode: 201,
         app: "API de Gestión de Productos - Edén Leilani Romero Serrano De Costabraba Cortes",
-        version: "1.0.1",
+        version: "1.2.1",
         endpoints: {
             categorias: {
                 "GET /api/categorias": "Lista todas las categorías",
