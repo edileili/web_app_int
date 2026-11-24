@@ -13,6 +13,8 @@
  *        --suite backend-jest --status success --results jest-results.json
  *   node scripts/notify-openobserve.js --stream ci_deployments --event deployment \
  *        --suite deploy-ec2 --status failure --extra image=edenlrs/webapp:abc123
+ * 
+ * Pruebas actuales
  */
 const fs = require('fs');
 
