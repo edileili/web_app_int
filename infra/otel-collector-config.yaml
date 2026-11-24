@@ -1,0 +1,60 @@
+# OpenTelemetry Collector para monitorear los RECURSOS DEL SERVIDOR (RF-05).
+# Lee CPU, memoria, disco, red y carga del host (EC2) y los envía por OTLP a OpenObserve.
+# Variables (las define install-collector.sh): OO_URL, OO_ORG, OO_AUTH, HOST_ROOT_PATH
+receivers:
+  host_metrics:
+    collection_interval: 15s
+    # Dentro del contenedor, el disco del servidor está montado en /hostfs
+    root_path: ${env:HOST_ROOT_PATH:-/hostfs}
+    scrapers:
+      cpu:
+        metrics:
+          system.cpu.utilization:
+            enabled: true
+      load: {}
+      memory:
+        metrics:
+          system.memory.utilization:
+            enabled: true
+      paging: {}
+      disk: {}
+      filesystem:
+        metrics:
+          system.filesystem.utilization:
+            enabled: true
+        exclude_mount_points:
+          mount_points: ["/dev/*", "/proc/*", "/sys/*", "/run/*", "/var/lib/docker/*", "/snap/*"]
+          match_type: regexp
+        exclude_fs_types:
+          fs_types: [autofs, binfmt_misc, bpf, cgroup2, configfs, debugfs, devpts, devtmpfs, fusectl, hugetlbfs, mqueue, nsfs, overlay, proc, procfs, pstore, rpc_pipefs, securityfs, selinuxfs, squashfs, sysfs, tracefs, tmpfs]
+          match_type: strict
+      network: {}
+      processes: {}
+
+processors:
+  resource_detection:
+    detectors: [env, system]
+    system:
+      hostname_sources: [os]
+  resource:
+    attributes:
+      - key: service.name
+        value: infraestructura-servidor
+        action: upsert
+      - key: deployment.environment
+        value: ec2-produccion
+        action: upsert
+  batch: {}
+
+exporters:
+  otlp_http/openobserve:
+    endpoint: ${env:OO_URL}/api/${env:OO_ORG}
+    headers:
+      Authorization: "Basic ${env:OO_AUTH}"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [host_metrics]
+      processors: [resource_detection, resource, batch]
+      exporters: [otlp_http/openobserve]

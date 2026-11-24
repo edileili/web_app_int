@@ -6,4 +6,5 @@ apuntes.text
 apuntes.textplaywright-report
 test-results
 playwright-results.json
+playwright-report
 jest-results.json
