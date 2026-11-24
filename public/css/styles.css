@@ -1,0 +1,70 @@
+/* ===== Personaliza aquí los colores y la tipografía ===== */
+:root {
+    --color-primario: #2563eb;
+    --color-primario-oscuro: #1d4ed8;
+    --color-peligro: #dc2626;
+    --color-exito: #16a34a;
+    --color-fondo: #f3f4f6;
+    --color-superficie: #ffffff;
+    --color-texto: #111827;
+    --color-borde: #d1d5db;
+    --radio: 8px;
+    --fuente: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--fuente); background: var(--color-fondo); color: var(--color-texto); }
+
+/* Navbar */
+.navbar { background: var(--color-primario); color: #fff; display: flex; align-items: center; gap: 1rem; padding: .75rem 1.25rem; flex-wrap: wrap; }
+.navbar .marca { font-weight: 700; font-size: 1.1rem; margin-right: auto; }
+.navbar a { color: #fff; text-decoration: none; padding: .25rem .5rem; border-radius: var(--radio); }
+.navbar a:hover, .navbar a.activo { background: var(--color-primario-oscuro); }
+.navbar .usuario-info { font-size: .9rem; opacity: .9; }
+
+/* Layout */
+main { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem; }
+h1 { margin-top: 0; }
+.tarjeta { background: var(--color-superficie); border: 1px solid var(--color-borde); border-radius: var(--radio); padding: 1.25rem; margin-bottom: 1.5rem; }
+.tarjeta h2 { margin-top: 0; font-size: 1.15rem; }
+.columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+
+/* Formularios */
+.campo { display: flex; flex-direction: column; margin-bottom: .85rem; }
+.campo label { font-size: .85rem; font-weight: 600; margin-bottom: .25rem; }
+input, select { padding: .55rem .65rem; border: 1px solid var(--color-borde); border-radius: var(--radio); font: inherit; background: #fff; }
+input:focus, select:focus { outline: 2px solid var(--color-primario); border-color: transparent; }
+.fila-botones { display: flex; gap: .5rem; flex-wrap: wrap; }
+.filtros { display: flex; gap: .75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.filtros input, .filtros select { flex: 1; min-width: 180px; }
+
+/* Botones */
+button { font: inherit; cursor: pointer; border: none; border-radius: var(--radio); padding: .5rem .9rem; background: var(--color-primario); color: #fff; }
+button:hover { background: var(--color-primario-oscuro); }
+button.secundario { background: #e5e7eb; color: var(--color-texto); }
+button.secundario:hover { background: #d1d5db; }
+button.peligro { background: var(--color-peligro); }
+button.peligro:hover { background: #b91c1c; }
+button.chico { padding: .3rem .6rem; font-size: .85rem; }
+
+/* Tablas */
+.tabla-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--color-borde); }
+th { background: #f9fafb; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; }
+td.acciones { display: flex; gap: .4rem; }
+
+/* Mensajes */
+.mensaje { padding: .6rem .8rem; border-radius: var(--radio); margin-bottom: .85rem; font-size: .9rem; }
+.mensaje.error { background: #fee2e2; color: #991b1b; }
+.mensaje.exito { background: #dcfce7; color: #166534; }
+.vacio { color: #6b7280; padding: 1rem 0; }
+.oculto { display: none !important; }
+
+/* Modal de confirmación */
+.modal-fondo { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal { background: #fff; border-radius: var(--radio); padding: 1.5rem; max-width: 420px; width: 90%; }
+.modal p { margin-top: 0; }
+
+.insignia { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: #e0e7ff; color: #3730a3; }
+.insignia.admin { background: #fef3c7; color: #92400e; }

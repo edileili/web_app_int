@@ -5,40 +5,122 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+# En PRs se cancela la ejecución anterior; en main NO, para no interrumpir un despliegue a medias
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '20'          # el Dockerfile usa Node 20; así se prueba con lo mismo que se despliega
+  CONTENEDOR: mi-api-app      # nombre del contenedor en el EC2 (el que ya usabas)
 
 jobs:
-  build-and-test:
+  # ---------------------------------------------------------------
+  # RF-01: pruebas de backend (Jest + Supertest)
+  # ---------------------------------------------------------------
+  backend-tests:
+    name: Pruebas backend (Jest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # --runInBand y --forceExit evitan el segfault/colgado que tenías con cobertura
+      - name: Ejecutar pruebas de backend
+        run: npx jest --runInBand --forceExit --json --outputFile=jest-results.json
+
+      - name: Reportar a OpenObserve
+        if: always()
+        env:
+          OO_URL: ${{ secrets.OPENOBSERVE_URL }}
+          OO_ORG: ${{ secrets.OPENOBSERVE_ORG }}
+          OO_USER: ${{ secrets.OPENOBSERVE_USER }}
+          OO_PASSWORD: ${{ secrets.OPENOBSERVE_PASSWORD }}
+        run: >
+          node scripts/notify-openobserve.js
+          --stream ci_test_runs --event test_run --suite backend-jest
+          --status "${{ job.status }}" --results jest-results.json
+
+  # ---------------------------------------------------------------
+  # RF-01: pruebas de frontend (Playwright). Arranca el servidor solo.
+  # ---------------------------------------------------------------
+  e2e-tests:
+    name: Pruebas frontend (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Ejecutar pruebas de frontend
+        run: npx playwright test
+
+      - name: Guardar reporte HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Reportar a OpenObserve
+        if: always()
+        env:
+          OO_URL: ${{ secrets.OPENOBSERVE_URL }}
+          OO_ORG: ${{ secrets.OPENOBSERVE_ORG }}
+          OO_USER: ${{ secrets.OPENOBSERVE_USER }}
+          OO_PASSWORD: ${{ secrets.OPENOBSERVE_PASSWORD }}
+        run: >
+          node scripts/notify-openobserve.js
+          --stream ci_test_runs --event test_run --suite frontend-playwright
+          --status "${{ job.status }}" --results playwright-results.json
+
+  # ---------------------------------------------------------------
+  # RF-02: publicación y despliegue SOLO en push a main y SOLO si
+  # pasaron las pruebas de backend y de frontend.
+  # (Antes la imagen se publicaba también en los pull requests.)
+  # ---------------------------------------------------------------
+  deploy:
+    name: Publicar imagen y desplegar en EC2
+    needs: [backend-tests, e2e-tests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Configurar Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Instalar dependencias
-        run: npm install
-
-      # Ejecutar pruebas limpias sin cobertura pesada que cause el segfault
-      - name: Ejecutar batería de pruebas
-        run: npm test
-
-      # 5. Iniciar sesión en Docker Hub de forma segura usando Secrets
       - name: Autenticación en Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 6. Configurar Docker Buildx (para compilación avanzada)
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 7. Compilar y publicar imagen en Docker Hub con tags :latest y :${{ github.sha }}
       - name: Construir y publicar imagen Docker
         uses: docker/build-push-action@v5
         with:
@@ -47,24 +129,98 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/webapp:latest
             ${{ secrets.DOCKER_USERNAME }}/webapp:${{ github.sha }}
-  deploy:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' # Solo despliega en push a main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-    steps:
       - name: Conectar a EC2 y desplegar contenedor
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            sudo docker stop mi-api-app || true
-            sudo docker rm mi-api-app || true
-            sudo docker rmi ${{ secrets.DOCKER_USERNAME }}/webapp:latest || true
+            set -u
+            IMAGEN="${{ secrets.DOCKER_USERNAME }}/webapp:${{ github.sha }}"
+            CONTENEDOR="${{ env.CONTENEDOR }}"
 
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/webapp:latest
-            
-            # 4. Levantar el nuevo contenedor mapeando el puerto 80 del servidor al puerto interno de la app (ej. 3000)
-            sudo docker run -d --name mi-api-app -p 80:3000 ${{ secrets.DOCKER_USERNAME }}/webapp:latest
+            # 0) Requisitos: se revisan ANTES de tocar el contenedor que está funcionando
+            if [ ! -f "$HOME/backend.env" ]; then
+              echo "ERROR: falta $HOME/backend.env (JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD, DB_PATH). No se modificó nada."
+              exit 1
+            fi
+            mkdir -p "$HOME/data"
+
+            # 1) Migración única: si aún no hay BD en el volumen, copia la del contenedor actual
+            if [ ! -f "$HOME/data/database.db" ] && sudo docker inspect "$CONTENEDOR" > /dev/null 2>&1; then
+              sudo docker cp "$CONTENEDOR:/app/database.db" "$HOME/data/database.db" 2>/dev/null \
+                && echo "BD anterior copiada al volumen persistente" \
+                || echo "No se encontró BD previa en el contenedor: se creará una nueva"
+            fi
+
+            # 2) Se guarda el ID de la imagen actual para poder volver atrás si algo falla
+            ANTERIOR=$(sudo docker inspect -f '{{.Image}}' "$CONTENEDOR" 2>/dev/null || true)
+
+            sudo docker pull "$IMAGEN" || exit 1
+            sudo docker stop "$CONTENEDOR" || true
+            sudo docker rm "$CONTENEDOR" || true
+
+            # Puerto 80 del servidor -> 3000 de la app (igual que antes).
+            # El puerto TCP 6061 NO se publica (no lo estabas usando); descomenta la línea de -p 6061 si lo necesitas.
+            sudo docker run -d --name "$CONTENEDOR" --restart unless-stopped \
+              -p 80:3000 \
+              -v "$HOME/data:/data" --env-file "$HOME/backend.env" \
+              "$IMAGEN"
+            #  -p 6061:6061 \
+
+            # 3) Verificación de salud (hasta ~40 s)
+            for i in $(seq 1 20); do
+              if curl -fsS http://localhost:80/api/health > /dev/null; then
+                echo "Despliegue correcto: $IMAGEN"
+                sudo docker image prune -af --filter "until=168h" > /dev/null
+                exit 0
+              fi
+              sleep 2
+            done
+
+            # 4) Falló: logs, y se restaura la versión anterior
+            echo "La app no respondió. Se intenta volver a la versión anterior: ${ANTERIOR:-<ninguna>}"
+            sudo docker logs --tail 40 "$CONTENEDOR" || true
+            sudo docker rm -f "$CONTENEDOR" || true
+            if [ -n "$ANTERIOR" ]; then
+              sudo docker run -d --name "$CONTENEDOR" --restart unless-stopped \
+                -p 80:3000 -v "$HOME/data:/data" --env-file "$HOME/backend.env" "$ANTERIOR"
+            fi
+            exit 1
+
+      # Pruebas de humo contra el servidor real (puerto 80)
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Pruebas de humo contra el EC2
+        env:
+          BASE_URL: http://${{ secrets.EC2_HOST }}
+        run: npx playwright test --grep @smoke
+
+      # RF-03: evento de despliegue completado (o fallido)
+      - name: Reportar despliegue a OpenObserve
+        if: always()
+        env:
+          OO_URL: ${{ secrets.OPENOBSERVE_URL }}
+          OO_ORG: ${{ secrets.OPENOBSERVE_ORG }}
+          OO_USER: ${{ secrets.OPENOBSERVE_USER }}
+          OO_PASSWORD: ${{ secrets.OPENOBSERVE_PASSWORD }}
+        run: >
+          node scripts/notify-openobserve.js
+          --stream ci_deployments --event deployment --suite deploy-ec2
+          --status "${{ job.status }}"
+          --extra image=${{ secrets.DOCKER_USERNAME }}/webapp:${{ github.sha }}
+          --extra environment=ec2-produccion

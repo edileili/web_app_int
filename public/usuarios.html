@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Usuarios | Inventario</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav id="navbar"></nav>
+    <main id="pagina-usuarios">
+        <h1 id="titulo-pagina">Usuarios</h1>
+
+        <div id="acceso-denegado" class="mensaje error oculto">Acceso denegado: esta sección es solo para administradores.</div>
+
+        <div id="contenido-usuarios" class="oculto">
+            <section class="tarjeta" id="seccion-usuario-form">
+                <h2 id="usuario-form-titulo">Nuevo usuario</h2>
+                <div id="usuario-error" class="mensaje error oculto"></div>
+                <div id="usuario-exito" class="mensaje exito oculto"></div>
+                <form id="usuario-form" novalidate>
+                    <input id="usuario-id" type="hidden">
+                    <div class="campo">
+                        <label for="usuario-nombre">Nombre</label>
+                        <input id="usuario-nombre" type="text">
+                    </div>
+                    <div class="campo">
+                        <label for="usuario-email">Email</label>
+                        <input id="usuario-email" type="email">
+                    </div>
+                    <div class="campo">
+                        <label for="usuario-password" id="usuario-password-label">Contraseña (mín. 8 caracteres)</label>
+                        <input id="usuario-password" type="password" autocomplete="new-password">
+                    </div>
+                    <div class="campo">
+                        <label for="usuario-rol">Rol</label>
+                        <select id="usuario-rol">
+                            <option value="usuario">usuario</option>
+                            <option value="admin">admin</option>
+                        </select>
+                    </div>
+                    <div class="fila-botones">
+                        <button id="usuario-guardar" type="submit">Guardar</button>
+                        <button id="usuario-cancelar" type="button" class="secundario">Cancelar</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="tarjeta">
+                <h2>Listado de usuarios</h2>
+                <div class="tabla-wrap">
+                    <table id="tabla-usuarios">
+                        <thead>
+                            <tr><th>ID</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Acciones</th></tr>
+                        </thead>
+                        <tbody id="usuarios-body"></tbody>
+                    </table>
+                </div>
+                <p id="usuarios-vacio" class="vacio oculto">No hay usuarios.</p>
+            </section>
+        </div>
+    </main>
+    <script src="/js/app.js"></script>
+    <script src="/js/usuarios.js"></script>
+</body>
+</html>

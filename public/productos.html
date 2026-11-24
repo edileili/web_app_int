@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Productos | Inventario</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav id="navbar"></nav>
+    <main id="pagina-productos">
+        <h1 id="titulo-pagina">Productos</h1>
+        <section class="tarjeta">
+            <div id="productos-error" class="mensaje error oculto"></div>
+            <div class="filtros">
+                <input id="buscar-producto" type="search" placeholder="Buscar por nombre…">
+                <select id="filtro-categoria">
+                    <option value="">Todas las categorías</option>
+                </select>
+            </div>
+            <div class="tabla-wrap">
+                <table id="tabla-productos">
+                    <thead>
+                        <tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Stock</th><th>Categoría</th></tr>
+                    </thead>
+                    <tbody id="productos-body"></tbody>
+                </table>
+            </div>
+            <p id="productos-vacio" class="vacio oculto">No hay productos para mostrar.</p>
+            <p id="productos-total">Total: 0</p>
+        </section>
+    </main>
+    <script src="/js/app.js"></script>
+    <script src="/js/productos.js"></script>
+</body>
+</html>

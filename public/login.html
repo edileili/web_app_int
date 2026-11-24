@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Iniciar sesión | Inventario</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav id="navbar"></nav>
+    <main id="pagina-login">
+        <h1 id="titulo-pagina">Acceso</h1>
+        <div class="columnas">
+            <section class="tarjeta" id="seccion-login">
+                <h2>Iniciar sesión</h2>
+                <div id="login-aviso" class="mensaje error oculto"></div>
+                <div id="login-error" class="mensaje error oculto"></div>
+                <form id="login-form" novalidate>
+                    <div class="campo">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" name="email" type="email" autocomplete="username">
+                    </div>
+                    <div class="campo">
+                        <label for="login-password">Contraseña</label>
+                        <input id="login-password" name="password" type="password" autocomplete="current-password">
+                    </div>
+                    <button id="login-submit" type="submit">Entrar</button>
+                </form>
+            </section>
+
+            <section class="tarjeta" id="seccion-registro">
+                <h2>Crear cuenta</h2>
+                <div id="register-error" class="mensaje error oculto"></div>
+                <div id="register-exito" class="mensaje exito oculto"></div>
+                <form id="register-form" novalidate>
+                    <div class="campo">
+                        <label for="register-nombre">Nombre</label>
+                        <input id="register-nombre" name="nombre" type="text" autocomplete="name">
+                    </div>
+                    <div class="campo">
+                        <label for="register-email">Email</label>
+                        <input id="register-email" name="email" type="email" autocomplete="email">
+                    </div>
+                    <div class="campo">
+                        <label for="register-password">Contraseña (mín. 8 caracteres)</label>
+                        <input id="register-password" name="password" type="password" autocomplete="new-password">
+                    </div>
+                    <button id="register-submit" type="submit">Registrarme</button>
+                </form>
+            </section>
+        </div>
+    </main>
+    <script src="/js/app.js"></script>
+    <script src="/js/login.js"></script>
+</body>
+</html>
