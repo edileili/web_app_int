@@ -1,0 +1,55 @@
+# Registra en OpenObserve cuando un push a main NO se despliega porque fallaron las pruebas
+# (criterio de aceptación 1). Se ejecuta solo, cuando termina el workflow principal.
+# Este archivo es nuevo: no modifica tu main.yml.
+name: Registrar despliegue bloqueado
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline - Node.js & Docker"]   # debe coincidir con el "name:" de tu main.yml
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  registrar:
+    name: Registrar bloqueo en OpenObserve
+    if: >
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # El despliegue está bloqueado si el job de publicación/despliegue fue omitido (skipped)
+      - name: ¿Se omitió el despliegue?
+        id: estado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CONCLUSION=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}/jobs" \
+            --jq '[.jobs[] | select(.name | startswith("Publicar imagen")) | .conclusion][0]')
+          echo "Estado del job de despliegue: ${CONCLUSION:-<no encontrado>}"
+          if [ "$CONCLUSION" = "skipped" ]; then echo "bloqueado=true" >> "$GITHUB_OUTPUT"; else echo "bloqueado=false" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Registrar bloqueo en OpenObserve
+        if: steps.estado.outputs.bloqueado == 'true'
+        env:
+          OO_URL: ${{ secrets.OPENOBSERVE_URL }}
+          OO_ORG: ${{ secrets.OPENOBSERVE_ORG }}
+          OO_USER: ${{ secrets.OPENOBSERVE_USER }}
+          OO_PASSWORD: ${{ secrets.OPENOBSERVE_PASSWORD }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: >
+          node scripts/notify-openobserve.js
+          --stream ci_deployments --event deployment --suite deploy-ec2 --status blocked
+          --extra reason=pruebas_fallidas
+          --extra environment=ec2-produccion
+          --extra commit_sha=$SHA
+          --extra commit_short=${SHA:0:7}
+          --extra branch=${{ github.event.workflow_run.head_branch }}
+          --extra actor=${{ github.event.workflow_run.actor.login }}
+          --extra run_id=${{ github.event.workflow_run.id }}
+          --extra run_url=${{ github.event.workflow_run.html_url }}
