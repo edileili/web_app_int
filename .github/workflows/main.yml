@@ -176,7 +176,7 @@ jobs:
             for i in $(seq 1 20); do
               if curl -fsS http://localhost:80/api/health > /dev/null; then
                 echo "Despliegue correcto: $IMAGEN"
-                sudo docker image prune -af --filter "until=168h" > /dev/null
+                sudo docker image prune -af --filter "until=48h" > /dev/null
                 exit 0
               fi
               sleep 2
